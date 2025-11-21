@@ -1,0 +1,295 @@
+---------------------------------------------------
+What operations do the following functions perform?
+--------------------------------------------------
+=================
+1.1 Film_in_stock
+=================
+Operation:
+Returns all inventory IDs for a given film that are currently available (not rented out).
+
+How:
+Calls internal function inventory_in_stock(inventory_id).
+
+Returns:
+SETOF INTEGER (list of inventory_ids in stock)
+=====================
+1.2 Film_not_in_stock
+=====================
+Operation:
+Returns all inventory IDs for a film that are currently rented (i.e., not in stock).
+
+How:
+Same logic as film_in_stock but reversed.
+
+======================
+1.3 Inventory_in_stock
+======================
+Operation:
+Checks if a specific inventory item is currently in the store.
+
+Logic:
+
+Look up the latest rental of that inventory item.
+
+If the last rental has return_date IS NULL, item is not in stock.
+
+Otherwise, item is in stock.
+
+Returns:
+BOOLEAN
+
+==============================
+1.4 Inventory_held_by_customer
+==============================
+Operation:
+Returns all inventory items the customer currently has rented and not yet returned.
+
+Logic:
+Find rentals where return_date IS NULL.
+
+========================
+1.5 Get_customer_balance
+========================
+Operation:
+Computes a customer’s balance (what they still owe).
+
+What it should do (according to business rules in comments):
+
+Add rental charges.
+
+Add late fees for overdue films.
+
+Subtract payments.
+
+Calculate all charges up to effective_date.
+
+What it actually does:
+
+Tries to sum payments and rental charges.
+
+Does not fully implement late fees.
+
+Some rules described in comments are missing.
+
+Uses simplified logic.
+
+==================
+1.6 Rewards_report
+==================
+Operation:
+Finds customers eligible for monthly rewards based on:
+
+rental count in last month
+
+total payments in last month
+
+Implementation issues:
+
+Uses dynamic SQL unnecessarily.
+
+Joins against a temporary table.
+
+Time filtering logic is incorrectly applied.
+
+Thresholds do not match dataset reality.
+
+==================
+1.7 Last_updated()
+==================
+Operation:
+A small utility function that returns the current timestamp.
+
+Used in:
+Triggers for auditing tables (mostly demonstration).
+
+=================
+1.8 Last_day(date)
+=================
+Operation:
+Returns the last day of the month for the provided date.
+
+Equivalent to:
+
+SELECT (date_trunc('month', input) + interval '1 month - 1 day')::date;
+
+======================================
+1.9 Group_concat() and _group_concat()
+======================================
+These are custom aggregate implementations used before PostgreSQL had string_agg.
+
+_group_concat(text, text) — the state transition function
+
+Takes the current aggregated string + new value.
+
+Concatenates them with a comma separator.
+
+group_concat(text) — the aggregate
+
+Wraps _group_concat as its state transition.
+
+Returns a single comma-separated string.
+
+Where used:
+
+In older training queries, sometimes in views, but typically nowhere in the final database.
+
+-----------------------------------------
+2. Why does rewards_report return 0 rows?
+-----------------------------------------
+There are several reasons:
+
+The monthly filtering logic excludes all rows
+
+Function filters like:
+
+DATE_TRUNC('month', payment_date) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
+
+
+But in the sample dvdrental data:
+
+Payment dates span only a short time window.
+
+No customer meets the default thresholds.
+
+Default thresholds are too high
+
+The original function requires:
+
+Many rentals
+
+High payment totals
+
+Sample dataset is too small → 0 matches.
+
+Incorrect join to a temporary table
+
+The temporary table created via dynamic SQL causes:
+
+Misaligned dates
+
+Lost rows
+
+And sometimes 0 results
+
+Use of dynamic SQL is unnecessary and buggy
+
+Executes queries in unexpected order, losing rows.
+
+==========================================
+3. Correct, fixed rewards_report function
+==========================================
+This version:
+
+Removes dynamic SQL
+
+Removes temporary tables
+
+Uses correct monthly calculations
+
+Works on dvdrental dataset
+
+Returns real rows
+
+CREATE OR REPLACE FUNCTION rewards_report(
+    min_monthly_purchases INTEGER,
+    min_dollar_amount NUMERIC
+)
+RETURNS TABLE (
+    customer_id INTEGER,
+    first_name TEXT,
+    last_name TEXT,
+    total_payments NUMERIC,
+    total_rentals INTEGER
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.customer_id,
+        c.first_name,
+        c.last_name,
+        SUM(p.amount) AS total_payments,
+        COUNT(r.rental_id) AS total_rentals
+    FROM customer c
+    JOIN payment p ON p.customer_id = c.customer_id
+    JOIN rental r ON r.customer_id = c.customer_id
+    WHERE p.payment_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
+      AND p.payment_date <  DATE_TRUNC('month', CURRENT_DATE)
+    GROUP BY c.customer_id, c.first_name, c.last_name
+    HAVING COUNT(r.rental_id) >= min_monthly_purchases
+       AND SUM(p.amount) >= min_dollar_amount;
+END;
+$$;
+
+=============================================
+4. Is there any function that can be removed?
+=============================================
+YES — group_concat and _group_concat
+
+Reason:
+PostgreSQL now includes built-in:
+
+string_agg(expression, ',')
+
+
+Therefore:
+
+group_concat
+
+_group_concat
+
+are obsolete and safe to remove.
+
+They exist only because the training database predates string_agg.
+
+==============================================
+5. How do group_concat and _group_concat work?
+==============================================
+_group_concat
+
+A state transition function for aggregates:
+
+_group_concat(state text, value text) → text
+
+
+Concatenates text values into one string.
+
+group_concat
+
+An aggregate defined like:
+
+CREATE AGGREGATE group_concat (text)
+(
+    SFUNC = _group_concat,
+    STYPE = text
+);
+===============================================
+6. What does last_updated do? Where is it used?
+===============================================
+Function:
+
+Returns now() (current timestamp).
+
+Used in:
+
+Trigger on film table
+
+Automatically updates last_update column when rows change.
+
+========================================
+7. What is tmpSQL inside rewards_report?
+========================================
+
+tmpSQL is a string containing dynamically assembled SQL code.
+
+Original function does:
+
+tmpSQL := 'INSERT INTO ... SELECT ... WHERE ...';
+EXECUTE tmpSQL;
+
+
+Why it is unnecessary:
+Because the SQL query structure is always the same and does not require dynamic modification.
+
+The function can be rewritten without EXECUTE, as shown earlier.

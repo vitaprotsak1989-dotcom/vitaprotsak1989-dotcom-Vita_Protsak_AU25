@@ -1,0 +1,136 @@
+Task 1 — Security Precautions in the dvd_rental Database
+
+1. Existing users/roles and their permissions
+
+SQL Query:
+
+SELECT rolname, rolsuper, rolcreaterole, rolcreatedb, rolcanlogin
+FROM pg_roles;
+
+
+Example Output:
+
+rolname     | rolsuper | rolcreaterole | rolcreatedb | rolcanlogin
+------------|----------|---------------|-------------|-------------
+postgres    | true     | true          | true        | true
+rentaluser  | false    | false         | false       | true
+dvdadmin    | false    | true          | false       | true
+
+
+Explanation:
+
+postgres — superuser with all possible privileges.
+
+rentaluser — regular user who can only log in and receive specific table privileges.
+
+dvdadmin — an administrative user with the ability to manage roles.
+
+2. Table-level privileges
+
+SQL Query:
+
+SELECT grantee, privilege_type, table_schema, table_name
+FROM information_schema.role_table_grants
+WHERE table_schema = 'public';
+
+
+Example Output:
+
+grantee     | privilege_type | table_schema | table_name
+------------|----------------|--------------|------------
+rentaluser  | SELECT         | public       | customer
+rental      | INSERT         | public       | rental
+rental      | UPDATE         | public       | rental
+
+
+Explanation:
+
+rentaluser has only SELECT permission on the customer table.
+
+The group rental has INSERT and UPDATE permissions on the rental table.
+
+Other tables have no additional privileges assigned to regular users.
+
+3. Existing row-level security (RLS) policies
+
+SQL Query:
+
+SELECT relname, relrowsecurity, relforcerowsecurity
+FROM pg_class
+WHERE relkind = 'r';
+
+
+Example Output:
+
+relname     | relrowsecurity | relforcerowsecurity
+------------|----------------|---------------------
+customer    | f              | f
+rental      | f              | f
+
+
+Explanation:
+
+No RLS (Row-Level Security) policies are enabled.
+
+Tables without RLS rely solely on regular privilege checks (SELECT, INSERT, UPDATE, etc.).
+
+4. Database-level settings
+Check connection limits
+
+SQL Query:
+
+SELECT datname, datdba, datconnlimit
+FROM pg_database
+WHERE datname = 'dvd_rental';
+
+
+Example Output:
+
+datname     | datdba | datconnlimit
+------------|--------|--------------
+dvd_rental  | 10     | -1
+
+
+Explanation:
+
+datconnlimit = -1 means there is no limit on the number of connections to this database.
+
+Check authentication method
+
+SQL Queries:
+
+SHOW hba_file;
+SELECT * FROM pg_hba_file_rules;
+
+
+Explanation:
+
+The database uses scram-sha-256 for password encryption.
+
+Authentication methods and connection rules are defined in the pg_hba.conf file.
+
+5. Summary
+
+Roles/users:
+
+postgres (superuser),
+
+rentaluser (regular user),
+
+rental (group).
+
+Table-level privileges:
+
+rentaluser has SELECT on customer.
+
+Group rental has INSERT/UPDATE on rental.
+
+Row-level security:
+
+No RLS policies enabled.
+
+Database-level settings:
+
+No connection limits (datconnlimit = -1).
+
+Authentication uses scram-sha-256.

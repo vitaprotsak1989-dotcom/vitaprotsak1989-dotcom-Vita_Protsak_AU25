@@ -1,0 +1,48 @@
+Task 4 — Answers
+
+How can one restrict access to certain columns of a database table?
+
+Use GRANT on specific columns: GRANT SELECT(column1, column2) ON table_name TO role_name;
+
+Use views that expose only selected columns and grant access to the view.
+
+Combine row-level security (RLS) with views to indirectly restrict columns.
+
+
+What is the difference between user identification and user authentication?
+
+User identification: The process of specifying who the user claims to be (e.g., username).
+
+User authentication: The process of verifying that the claimed identity is correct (e.g., password, certificate).
+
+
+What are the recommended authentication protocols for PostgreSQL?
+
+SCRAM-SHA-256 (This is the best password-based method, as it's secure and built into PostgreSQL, 
+replacing older, less secure methods like MD5.)
+
+Peer authentication (Use this for local connections where the client application can connect 
+as the same operating system user. It's a very secure method for local access).
+
+GSSAPI / Kerberos (Provides single sign-on (SSO) and strong security, especially in large organizations with existing Kerberos infrastructure).
+
+LDAP (Integrates with a centralized directory for user authentication.)
+
+Certificate authentication (Uses SSL client certificates for authentication, providing a high level of security).
+
+PAM (Pluggable Authentication Modules) (Allows authentication via the system's PAM infrastructure, providing flexibility in authentication choices). 
+
+
+What is proxy authentication in PostgreSQL and why is it useful?
+
+Proxy authentication allows a PostgreSQL role to act on behalf of another role for authentication.
+
+It simplifies role-based access control (RBAC) because a single login can switch to subordinate roles with defined privileges.
+
+Example:
+
+SET ROLE client_Patricia_Johnson;
+SELECT * FROM public.rental;
+
+
+Benefit: Easier user management while strictly enforcing role privileges.

@@ -8,13 +8,13 @@ WITH channel_sales AS (
         ch.channel_desc,
         SUM(s.amount_sold)     AS amount_sold
     FROM sh.sales s
-    JOIN sh.times t
+    INNER JOIN sh.times t
         ON s.time_id = t.time_id
-    JOIN sh.channels ch
+    INNER JOIN sh.channels ch
         ON s.channel_id = ch.channel_id
-    JOIN sh.customers cu
+    INNER JOIN sh.customers cu
         ON s.cust_id = cu.cust_id
-    JOIN sh.countries co
+    INNER JOIN sh.countries co
         ON cu.country_id = co.country_id
     WHERE t.calendar_year BETWEEN 1999 AND 2001
       AND co.country_region IN ('Americas', 'Asia', 'Europe')
@@ -72,7 +72,7 @@ WITH daily_sales AS (
         t.day_name,
         SUM(s.amount_sold) AS daily_amount
     FROM sh.sales s
-    JOIN sh.times t
+    INNER JOIN sh.times t
         ON s.time_id = t.time_id
     WHERE t.calendar_year = 1999
       AND t.calendar_week_number IN (49, 50, 51)
@@ -153,7 +153,7 @@ SELECT
         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
     ) AS running_week_total
 FROM sh.sales s
-JOIN sh.times t
+INNER JOIN sh.times t
     ON s.time_id = t.time_id
 WHERE t.calendar_year = 1999
 GROUP BY
@@ -182,7 +182,7 @@ SELECT
         RANGE BETWEEN INTERVAL '6 days' PRECEDING AND CURRENT ROW
     ) AS rolling_7_day_total
 FROM sh.sales s
-JOIN sh.times t
+INNER JOIN sh.times t
     ON s.time_id = t.time_id
 WHERE t.calendar_year = 1999
 GROUP BY
@@ -214,7 +214,7 @@ SELECT
         GROUPS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
     ) AS category_running_total
 FROM sh.sales s
-JOIN sh.products p
+INNER JOIN sh.products p
     ON s.prod_id = p.prod_id
 WHERE EXTRACT(YEAR FROM s.time_id) = 2000
 GROUP BY

@@ -1,4 +1,6 @@
--- Завдання 1: Top 5 клієнтів для кожного каналу
+-- ====================
+-- Task 1
+-- ====================
 WITH customer_sales AS (
     SELECT
         s.channel_id,
@@ -31,11 +33,11 @@ SELECT
     ROUND(r.total_sales, 2) AS total_sales,
     ROUND((r.total_sales / ct.channel_total) * 100, 4) || '%' AS sales_percentage
 FROM ranked_customers r
-JOIN sh.customers cu
+INNER JOIN sh.customers cu
     ON r.cust_id = cu.cust_id
-JOIN sh.channels ch
+INNER JOIN sh.channels ch
     ON r.channel_id = ch.channel_id
-JOIN channel_totals ct
+INNER JOIN channel_totals ct
     ON r.channel_id = ct.channel_id
 WHERE r.rn <= 5
 ORDER BY
@@ -44,7 +46,10 @@ ORDER BY
 
 
 
--- Завдання 2: Продажі Photo категорії в Азії за 2000 рік, згруповані за кварталами
+-- ====================
+-- Task 2
+-- ==================== 
+
 CREATE EXTENSION IF NOT EXISTS tablefunc;
 
 SELECT
@@ -66,9 +71,9 @@ FROM crosstab(
         'Q' || EXTRACT(QUARTER FROM s.time_id)::int AS quarter,
         SUM(s.amount_sold) AS total_sales
     FROM sh.sales s
-    JOIN sh.products p   ON s.prod_id = p.prod_id
-    JOIN sh.customers cu ON s.cust_id = cu.cust_id
-    JOIN sh.countries c  ON cu.country_id = c.country_id
+    INNER JOIN sh.products p   ON s.prod_id = p.prod_id
+    INNER JOIN sh.customers cu ON s.cust_id = cu.cust_id
+    INNER JOIN sh.countries c  ON cu.country_id = c.country_id
     WHERE UPPER(p.prod_category) = 'PHOTO'
       AND UPPER(c.country_region) = 'ASIA'
       AND EXTRACT(YEAR FROM s.time_id) = 2000
@@ -88,52 +93,60 @@ ORDER BY year_sum DESC;
 
 
 
-
--- Завдання 3: TOP-300 клієнтів за 1998, 1999 та 2001 роки, по каналам
-WITH yearly_channel_sales AS (
+-- ====================
+-- Task 3
+-- ====================
+WITH channel_year_sales AS (
     SELECT
+        ch.channel_desc,
         s.cust_id,
-        s.channel_id,
+        cu.cust_last_name,
+        cu.cust_first_name,
         EXTRACT(YEAR FROM s.time_id) AS sales_year,
         SUM(s.amount_sold) AS total_sales
     FROM sh.sales s
+    INNER JOIN sh.channels ch
+        ON s.channel_id = ch.channel_id
+    INNER JOIN sh.customers cu
+        ON s.cust_id = cu.cust_id
     WHERE EXTRACT(YEAR FROM s.time_id) IN (1998, 1999, 2001)
     GROUP BY
+        ch.channel_desc,
         s.cust_id,
-        s.channel_id,
+        cu.cust_last_name,
+        cu.cust_first_name,
         EXTRACT(YEAR FROM s.time_id)
 ),
 ranked_customers AS (
     SELECT
+        channel_desc,
         cust_id,
-        channel_id,
+        cust_last_name,
+        cust_first_name,
         sales_year,
         total_sales,
         ROW_NUMBER() OVER (
-            PARTITION BY sales_year, channel_id
+            PARTITION BY channel_desc, sales_year
             ORDER BY total_sales DESC
         ) AS sales_rank
-    FROM yearly_channel_sales
+    FROM channel_year_sales
 )
 SELECT
-    cu.cust_first_name || ' ' || cu.cust_last_name AS customer_name,
-    ch.channel_desc AS channel_name,
-    rc.sales_year,
-    ROUND(rc.total_sales, 2) AS total_sales
-FROM ranked_customers rc
-JOIN sh.customers cu
-    ON rc.cust_id = cu.cust_id
-JOIN sh.channels ch
-    ON rc.channel_id = ch.channel_id
-WHERE rc.sales_rank <= 300
+    channel_desc,
+    cust_id,
+    cust_first_name || ' ' || cust_last_name AS customer_name,
+    ROUND(total_sales, 2) AS total_sales
+FROM ranked_customers
+WHERE sales_rank <= 300
 ORDER BY
-    rc.sales_year,
-    ch.channel_desc,
+    channel_desc,
+    sales_year,
     total_sales DESC;
 
 
-
--- Завдання 4: Продажі Jan–Mar 2000 для Європи та Америк у вигляді окремих стовпців
+-- ====================
+-- Task 4
+-- ====================
 SELECT
     TO_CHAR(s.time_id, 'YYYY-MM') AS month,
     p.prod_category AS product_category,
